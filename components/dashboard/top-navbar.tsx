@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDashboardStore } from "@/lib/store";
 import {
   Search,
@@ -38,6 +38,30 @@ export function TopNavbar() {
   } = useDashboardStore();
 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; organizationName: string | null } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error("Unauthorized");
+      })
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+        }
+      })
+      .catch((err) => console.warn("Session check:", err));
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -156,14 +180,23 @@ export function TopNavbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                JD
+                {currentUser ? currentUser.name.split(" ").map((n) => n[0]).join("") : "U"}
               </div>
-              <span className="hidden text-sm md:inline-block">John Doe</span>
+              <span className="hidden text-sm md:inline-block">
+                {currentUser ? currentUser.name : "Loading..."}
+              </span>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel className="flex flex-col">
+              <span className="font-semibold">My Account</span>
+              {currentUser?.organizationName && (
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                  {currentUser.organizationName}
+                </span>
+              )}
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
@@ -174,7 +207,7 @@ export function TopNavbar() {
               Activity Log
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleLogout}>
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -1,0 +1,78 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String        @id @default(uuid())
+  name           String?
+  email          String        @unique
+  passwordHash   String
+  role           String        @default("viewer")
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  assets    Asset[]
+  alerts    Alert[]
+  workers   Worker[]
+}
+
+model Asset {
+  id             String        @id @default(uuid())
+  symbol         String        @unique
+  name           String
+  price          Float
+  change24h      Float
+  volume24h      Float
+  high24h        Float
+  low24h         Float
+  marketCap      Float
+  sparkline      String        // JSON stringified array of numbers
+  status         String        // "active" | "halted" | "closed"
+  lastUpdate     DateTime      @default(now())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+}
+
+model Alert {
+  id             String        @id @default(uuid())
+  title          String
+  description    String
+  severity       String        // "critical" | "warning" | "info"
+  status         String        // "active" | "triggered" | "resolved" | "snoozed"
+  asset          String?
+  threshold      Float?
+  currentValue   Float?
+  triggeredAt    DateTime?
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+}
+
+model Worker {
+  id             String        @id @default(uuid())
+  name           String
+  type           String        // "ingestion" | "processor" | "evaluator" | "writer" | "ai-agent"
+  status         String        // "healthy" | "degraded" | "down" | "starting"
+  cpu            Float
+  memory         Float
+  uptime         Int
+  processedCount Int
+  errorRate      Float
+  lastHeartbeat  DateTime      @default(now())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+}

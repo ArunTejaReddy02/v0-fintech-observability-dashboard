@@ -22,60 +22,58 @@ export function useRealtimeData() {
     setInsights,
     assets,
     metrics,
-    updateAsset,
   } = useDashboardStore();
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const metricsIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Initialize data on mount
   useEffect(() => {
-    setAssets(mockAssets);
-    setAlerts(mockAlerts);
-    setWorkers(mockWorkers);
-    setMetrics(mockMetrics);
+    // Populate static AI insights on mount
     setInsights(mockInsights);
 
     // Add initial notifications
     mockNotifications.forEach((notif) => {
       useDashboardStore.getState().addNotification(notif);
     });
+
+    const fetchData = async () => {
+      try {
+        const [assetsRes, alertsRes, workersRes, metricsRes] = await Promise.all([
+          fetch("/api/assets"),
+          fetch("/api/alerts"),
+          fetch("/api/workers"),
+          fetch("/api/metrics"),
+        ]);
+
+        if (assetsRes.ok) {
+          const assetsData = await assetsRes.json();
+          // Map dates from string back to Date objects
+          setAssets(assetsData.map((a: any) => ({ ...a, lastUpdate: new Date(a.lastUpdate) })));
+        }
+        if (alertsRes.ok) {
+          const alertsData = await alertsRes.json();
+          setAlerts(alertsData.map((al: any) => ({
+            ...al,
+            createdAt: new Date(al.createdAt),
+            triggeredAt: al.triggeredAt ? new Date(al.triggeredAt) : undefined,
+            resolvedAt: al.resolvedAt ? new Date(al.resolvedAt) : undefined,
+          })));
+        }
+        if (workersRes.ok) {
+          const workersData = await workersRes.json();
+          setWorkers(workersData.map((w: any) => ({ ...w, lastHeartbeat: new Date(w.lastHeartbeat) })));
+        }
+        if (metricsRes.ok) {
+          const metricsData = await metricsRes.json();
+          setMetrics(metricsData);
+        }
+      } catch (error) {
+        console.error("Error fetching real-time data:", error);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
   }, [setAssets, setAlerts, setWorkers, setMetrics, setInsights]);
-
-  // Simulate real-time price updates
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      const currentAssets = useDashboardStore.getState().assets;
-      if (currentAssets.length > 0) {
-        // Update a random asset
-        const randomIndex = Math.floor(Math.random() * currentAssets.length);
-        const asset = currentAssets[randomIndex];
-        const updatedAsset = simulatePriceUpdate(asset);
-        updateAsset(asset.id, updatedAsset);
-      }
-    }, 100); // Update every 100ms for smooth real-time feel
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [updateAsset]);
-
-  // Simulate metrics updates
-  useEffect(() => {
-    metricsIntervalRef.current = setInterval(() => {
-      const currentMetrics = useDashboardStore.getState().metrics;
-      const updatedMetrics = simulateMetricUpdate(currentMetrics);
-      setMetrics(updatedMetrics);
-    }, 1000); // Update every second
-
-    return () => {
-      if (metricsIntervalRef.current) {
-        clearInterval(metricsIntervalRef.current);
-      }
-    };
-  }, [setMetrics]);
 
   return { assets, metrics };
 }
@@ -85,8 +83,8 @@ export function useAnimatedNumber(
   duration: number = 300
 ): number {
   const ref = useRef(value);
-  const frameRef = useRef<number>();
-  const startTimeRef = useRef<number>();
+  const frameRef = useRef<number | undefined>(undefined);
+  const startTimeRef = useRef<number | undefined>(undefined);
   const startValueRef = useRef(value);
 
   useEffect(() => {

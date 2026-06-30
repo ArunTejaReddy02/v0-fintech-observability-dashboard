@@ -13,12 +13,31 @@ export function DashboardContent() {
   const { activeView, assets, alerts, workers, metrics, insights, updateAlert } =
     useDashboardStore();
 
-  const handleResolveAlert = (id: string) => {
-    updateAlert(id, { status: "resolved", resolvedAt: new Date() });
+  const handleResolveAlert = async (id: string) => {
+    try {
+      const resolvedAt = new Date();
+      updateAlert(id, { status: "resolved", resolvedAt });
+      await fetch("/api/alerts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "resolved", resolvedAt }),
+      });
+    } catch (error) {
+      console.error("Error resolving alert:", error);
+    }
   };
 
-  const handleSnoozeAlert = (id: string) => {
-    updateAlert(id, { status: "snoozed" });
+  const handleSnoozeAlert = async (id: string) => {
+    try {
+      updateAlert(id, { status: "snoozed" });
+      await fetch("/api/alerts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "snoozed" }),
+      });
+    } catch (error) {
+      console.error("Error snoozing alert:", error);
+    }
   };
 
   // Render based on active view
